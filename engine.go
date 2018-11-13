@@ -8,7 +8,7 @@ type Engine struct {
 	messages chan *wrappedMessage
 
 	topicSubscribersLock *sync.Mutex
-	topicSubscribers map[string][]chan *Message
+	topicSubscribers     map[string][]chan *Message
 }
 
 func NewEngine(capacity int) *Engine {
@@ -16,7 +16,7 @@ func NewEngine(capacity int) *Engine {
 		messages: make(chan *wrappedMessage, capacity),
 
 		topicSubscribersLock: &sync.Mutex{},
-		topicSubscribers: make(map[string][]chan *Message),
+		topicSubscribers:     make(map[string][]chan *Message),
 	}
 }
 
@@ -41,7 +41,7 @@ func (e *Engine) Publish(topic string, name string, data interface{}) {
 
 func (e *Engine) PublishMessage(topic string, m *Message) {
 	e.messages <- &wrappedMessage{
-		topic: topic,
+		topic:   topic,
 		message: m,
 	}
 }
@@ -87,7 +87,7 @@ func (e *Engine) Unsubscribe(topic string, s <-chan *Message) {
 		return
 	}
 
-    list = append(list[:indexToRemove], list[indexToRemove+1:]...)
+	list = append(list[:indexToRemove], list[indexToRemove+1:]...)
 
 	e.topicSubscribers[topic] = list
 }
