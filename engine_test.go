@@ -6,28 +6,27 @@ import (
 )
 
 func TestEngine(t *testing.T) {
-	e := NewEngine(1024)
+	e := NewEngine[int](1024)
 	go e.Start()
 
 	s1 := e.Subscribe("test", 1024)
 	s2 := e.Subscribe("test", 1024)
 	s3 := e.Subscribe("test", 1024)
 
-	e.Publish("test", "whatever1", 15)
-	e.Publish("test", "whatever2", 91)
+	e.Publish("test", 15)
+	e.Publish("test", 91)
 
-	testSubscriber := func(s <-chan *Message, name string, data interface{}) {
+	testSubscriber := func(s <-chan int, expectedMsg int) {
 		m := <-s
-		assert.Equal(t, name, m.Name, "Message name should be %v", name)
-		assert.Equal(t, data, m.Data, "Message data should be %v", data)
+		assert.Equal(t, expectedMsg, m, "Message should be %v", expectedMsg)
 	}
 
-	testSubscriber(s1, "whatever1", 15)
-	testSubscriber(s1, "whatever2", 91)
+	testSubscriber(s1, 15)
+	testSubscriber(s1, 91)
 
-	testSubscriber(s2, "whatever1", 15)
-	testSubscriber(s2, "whatever2", 91)
+	testSubscriber(s2, 15)
+	testSubscriber(s2, 91)
 
-	testSubscriber(s3, "whatever1", 15)
-	testSubscriber(s3, "whatever2", 91)
+	testSubscriber(s3, 15)
+	testSubscriber(s3, 91)
 }

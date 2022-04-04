@@ -4,66 +4,62 @@ import (
 	"sync"
 )
 
-type Engine struct {
-	messages chan *wrappedMessage
-
-	subscribersByTopicLock *sync.Mutex
-	subscribersByTopic     map[string][]chan *Message
+type wrappedMessage[MessageType interface{}] struct {
+	topic   string
+	message MessageType
 }
 
-func NewEngine(capacity int) *Engine {
-	return &Engine{
-		messages: make(chan *wrappedMessage, capacity),
+type Engine[MessageType interface{}] struct {
+	messages chan *wrappedMessage[MessageType]
+
+	subscribersByTopicLock *sync.Mutex
+	subscribersByTopic     map[string][]chan MessageType
+}
+
+func NewEngine[MessageType interface{}](capacity int) *Engine[MessageType] {
+	return &Engine[MessageType]{
+		messages: make(chan *wrappedMessage[MessageType], capacity),
 
 		subscribersByTopicLock: &sync.Mutex{},
-		subscribersByTopic:     make(map[string][]chan *Message),
+		subscribersByTopic:     make(map[string][]chan MessageType),
 	}
 }
 
-func (e *Engine) Start() {
+func (e *Engine[MessageType]) Start() {
 	for wm := range e.messages {
 		e.broadcast(wm.topic, wm.message)
 	}
 }
 
-func (e *Engine) Stop() {
+func (e *Engine[MessageType]) Stop() {
 	close(e.messages)
 }
 
-func (e *Engine) Publish(topic string, name string, data interface{}) {
-	m := &Message{
-		Name: name,
-		Data: data,
-	}
-
-	e.PublishMessage(topic, m)
-}
-
-func (e *Engine) PublishMessage(topic string, m *Message) {
-	e.messages <- &wrappedMessage{
+func (e *Engine[MessageType]) Publish(topic string, msg MessageType) {
+	e.messages <- &wrappedMessage[MessageType]{
 		topic:   topic,
-		message: m,
+		message: msg,
 	}
 }
 
-func (e *Engine) Subscribe(topic string, capacity int) <-chan *Message {
+func (e *Engine[MessageType]) Subscribe(topic string, capacity int) <-chan MessageType {
 	e.subscribersByTopicLock.Lock()
 	defer e.subscribersByTopicLock.Unlock()
 
 	subscribers, has := e.subscribersByTopic[topic]
 	if !has {
-		subscribers = make([]chan *Message, 0)
+		subscribers = make([]chan MessageType, 0)
 		e.subscribersByTopic[topic] = subscribers
 	}
 
-	s := make(chan *Message, capacity)
+	s := make(chan MessageType, capacity)
 	subscribers = append(subscribers, s)
 	e.subscribersByTopic[topic] = subscribers
 
 	return s
 }
 
-func (e *Engine) Unsubscribe(topic string, s <-chan *Message) {
+func (e *Engine[MessageType]) Unsubscribe(topic string, s <-chan MessageType) {
 	e.subscribersByTopicLock.Lock()
 	defer e.subscribersByTopicLock.Unlock()
 
@@ -89,7 +85,7 @@ func (e *Engine) Unsubscribe(topic string, s <-chan *Message) {
 	e.subscribersByTopic[topic] = subscribers
 }
 
-func (e *Engine) broadcast(topic string, m *Message) {
+func (e *Engine[MessageType]) broadcast(topic string, m MessageType) {
 	e.subscribersByTopicLock.Lock()
 	defer e.subscribersByTopicLock.Unlock()
 
