@@ -7,16 +7,16 @@ import (
 type Engine struct {
 	messages chan *wrappedMessage
 
-	topicSubscribersLock *sync.Mutex
-	topicSubscribers     map[string][]chan *Message
+	subscribersByTopicLock *sync.Mutex
+	subscribersByTopic     map[string][]chan *Message
 }
 
 func NewEngine(capacity int) *Engine {
 	return &Engine{
 		messages: make(chan *wrappedMessage, capacity),
 
-		topicSubscribersLock: &sync.Mutex{},
-		topicSubscribers:     make(map[string][]chan *Message),
+		subscribersByTopicLock: &sync.Mutex{},
+		subscribersByTopic:     make(map[string][]chan *Message),
 	}
 }
 
@@ -47,37 +47,34 @@ func (e *Engine) PublishMessage(topic string, m *Message) {
 }
 
 func (e *Engine) Subscribe(topic string, capacity int) <-chan *Message {
-	e.topicSubscribersLock.Lock()
-	defer e.topicSubscribersLock.Unlock()
+	e.subscribersByTopicLock.Lock()
+	defer e.subscribersByTopicLock.Unlock()
 
-	var list []chan *Message
-	var has bool
-
-	list, has = e.topicSubscribers[topic]
+	subscribers, has := e.subscribersByTopic[topic]
 	if !has {
-		list = make([]chan *Message, 0)
-		e.topicSubscribers[topic] = list
+		subscribers = make([]chan *Message, 0)
+		e.subscribersByTopic[topic] = subscribers
 	}
 
 	s := make(chan *Message, capacity)
-	list = append(list, s)
-	e.topicSubscribers[topic] = list
+	subscribers = append(subscribers, s)
+	e.subscribersByTopic[topic] = subscribers
 
 	return s
 }
 
 func (e *Engine) Unsubscribe(topic string, s <-chan *Message) {
-	e.topicSubscribersLock.Lock()
-	defer e.topicSubscribersLock.Unlock()
+	e.subscribersByTopicLock.Lock()
+	defer e.subscribersByTopicLock.Unlock()
 
-	list, has := e.topicSubscribers[topic]
+	subscribers, has := e.subscribersByTopic[topic]
 	if !has {
 		return
 	}
 
 	indexToRemove := -1
 
-	for i, sub := range list {
+	for i, sub := range subscribers {
 		if sub == s {
 			indexToRemove = i
 		}
@@ -87,21 +84,21 @@ func (e *Engine) Unsubscribe(topic string, s <-chan *Message) {
 		return
 	}
 
-	list = append(list[:indexToRemove], list[indexToRemove+1:]...)
+	subscribers = append(subscribers[:indexToRemove], subscribers[indexToRemove+1:]...)
 
-	e.topicSubscribers[topic] = list
+	e.subscribersByTopic[topic] = subscribers
 }
 
 func (e *Engine) broadcast(topic string, m *Message) {
-	e.topicSubscribersLock.Lock()
-	defer e.topicSubscribersLock.Unlock()
+	e.subscribersByTopicLock.Lock()
+	defer e.subscribersByTopicLock.Unlock()
 
-	list, ok := e.topicSubscribers[topic]
+	subscribers, ok := e.subscribersByTopic[topic]
 	if !ok {
 		return
 	}
 
-	for _, s := range list {
+	for _, s := range subscribers {
 		s <- m
 	}
 }
