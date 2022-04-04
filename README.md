@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	e := pubsub.NewEngine(1024)
+	e := pubsub.NewEngine[int](1024)
 
 	go e.Start()
 	defer e.Stop()
@@ -28,8 +28,8 @@ func main() {
 		}
 	}()
 
-	e.Publish("any_topic", "any_message_title", 111222333)
-	e.Publish("any_topic", "any_message_title", "any message value")
+	e.Publish("any_topic", 111222333)
+	e.Publish("any_topic", 369)
 
 	time.Sleep(time.Second * 1)
 }
